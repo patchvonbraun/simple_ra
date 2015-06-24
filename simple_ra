@@ -1,0 +1,541 @@
+#!/bin/sh
+SRA_FREQ=15000000.0
+SRA_FOFFS=0.0
+SRA_GAIN=0.0
+SRA_INTEG=1.0
+SRA_DCGAIN=100
+SRA_SPAVG=1.0
+SRA_DEVID="uhd=a,type=usrp1"
+SRA_SRATE="2.0e6"
+LONGITUDE=-76.02
+LATITUDE=44.9
+SRA_FFTSIZE=2048
+SRA_MAXGAIN=70
+SRA_DECLN=-99.0
+SRA_RA=12.0
+SRA_REFM=1.0
+SRA_DBW=1.0e6
+SRA_PPM=0.0
+SRA_LRATE=5
+SRA_TITLE="Simple RA Receiver"
+SRA_FIFO="/dev/null"
+SRA_CFILE="/dev/not_bluddy_likely"
+SRA_DEVID2="file=/dev/zero,rate=10.0e6"
+SRA_CSVMODE=0
+SRA_EXPNAME="SRA"
+SRA_CDEVN="none"
+SRA_CDEVOFF="PO,B,0,0"
+SRA_CDEVON="PO,B,0,1"
+SRA_CDEVINIT="C,0,0,0,0"
+SRA_CDEVRATE=19200
+SRA_CONTIME=90
+SRA_CINTERVAL=3600
+SRA_SPPE=0
+SRA_SPDE=0
+SRA_DFD=0
+SRA_SPLE=0
+SRA_TPLD=0
+SRA_INTERF=0
+SRA_PPE=0
+SRA_DEVSTR="NONE"
+SRA_FSE=0
+BASELINE=0.0
+SRA_STYPE="both"
+SRA_APERTURE=1.0
+WHICH=$SRA_WHICH
+PREFIX=$HOME/simple_ra_data/$WHICH
+SRA_ANTENNA="Default"
+SRA_RPCPORT=1420
+while [ $# -gt 0 ]
+do
+	case $1 in
+		--devid)
+			SRA_DEVID="$2"
+			shift 2
+			;;
+			
+		--devid2)
+			SRA_DEVID2="$2"
+			shift 2
+			;;
+		
+		--devstr)
+			SRA_DEVSTR="$2"
+			shift 2
+			;;
+			
+		--longitude)
+			LONGITUDE=$2
+			shift 2
+			;;
+		
+		--latitude)
+			LATITUDE=$2
+			shift 2
+			;;
+		
+		--decln)
+			SRA_DECLN=$2
+			shift 2
+			;;
+		
+		--ra)
+			SRA_RA=$2
+			shift 2
+			;;
+		
+		--baseline)
+			BASELINE=$2
+			shift 2
+			;;
+			
+		--aperture)
+			SRA_APERTURE=$2
+			shift 2
+			;;
+		
+		--srate)
+			SRA_SRATE=$2
+			shift 2
+			;;
+
+		--fftsize)
+			SRA_FFTSIZE=$2
+			shift 2
+			;;
+			
+		--freq|--frequency)
+			SRA_FREQ=$2
+			shift 2
+			;;
+		--gain)
+			SRA_GAIN=$2
+			shift 2
+			;;
+			
+		--dcg)
+			SRA_DCGAIN=$2
+			case $SRA_DCGAIN in
+			    100|1000|10000|100000)
+			         good=1
+			         ;;
+			    *)
+			         echo "Valid DC gain settings are: 100, 1000, 10000, 100000"
+			         exit
+			         ;;
+			esac
+			shift 2
+			;;
+		
+		--dbw)
+			SRA_DBW=$2
+			shift 2
+			;;
+		
+		--integ)
+			SRA_INTEG=$2
+			shift 2
+			;;
+		
+		--lrate)
+			SRA_LRATE=$2
+			shift 2
+			;;
+			
+		--title)
+			SRA_TITLE=$2
+			shift 2
+			;;
+			
+		--ppm)
+			SRA_PPM=$2
+			shift 2
+			;;
+			
+		--cfile)
+			SRA_CFILE=$2
+			shift 2
+			;;
+			
+		--fifo)
+			SRA_FIFO=$2
+			shift 2
+			;;
+		
+		--maxg)
+			SRA_MAXGAIN=$2
+			shift 2
+			;;
+			
+		--which|--prefix)
+			WHICH=$2
+			shift 2
+			;;
+		
+		--skoffs)
+			SRA_FOFFS=$2
+			shift 2
+			;;
+		
+		--expname)
+			SRA_EXPNAME=$2
+			shift 2
+			;;
+		
+		--cdevn)
+			SRA_CDEVN=$2
+			shift 2
+			;;
+		
+		--cdevon)
+			SRA_CDEVON=$2
+			shift 2
+			;;
+			
+		--cdevoff)
+			SRA_CDEVOFF=$2
+			shift 2
+			;;
+		
+		--cdevinit)
+			SRA_CDEVINIT=$2
+			shift 2
+			;;
+		
+		--cdevrate)
+			SRA_CDEVRATE=$2
+			shift 2
+			;;
+		
+		--cinterval)
+			SRA_CINTERVAL=$2
+			shift 2
+			;;
+		
+		--contime)
+			SRA_CONTIME=$2
+			shift 2
+			;;
+		
+		--sppe)
+			SRA_SPPE=1
+			shift 1
+			;;
+			
+	    --spde)
+			SRA_SPDE=1
+			shift 1
+			;;
+			
+	    --sple)
+			SRA_SPLE=1
+			shift 1
+			;;
+			
+		--dfd)
+		    SRA_DFD=1
+		    shift 1
+		    ;;
+		   
+		--tpld)
+		    SRA_TPLD=1
+		    shift 1
+		    ;;
+		    
+		--interf)
+			SRA_INTERF=1
+			shift 1
+			;;
+		
+		--fse)
+			SRA_FSE=1
+			shift 1
+			;;
+			
+		--ppe)
+			SRA_PPE=1
+			shift 1
+			;;
+		
+		--stype)
+			SRA_STYPE=$2
+			shift 2
+			;;
+		
+		--ant)
+			SRA_ANTENNA=$2
+			shift 2
+			;;
+			
+		--rpcport)
+			SRA_RPCPORT=$2
+			shift 2
+			;;
+
+		--refm)
+			SRA_REFM=$2
+			shift 2
+			;;
+			
+		--help|-h)
+			cat <<!EOF!
+Usage: simple_ra      with zero or more of the following options:
+
+DEVICE FIXED PARAMS
+===================
+            
+--srate <rate>     Set sample rate to <rate>. Eg. 2.0e6, 1.25e6.
+                   Default: $SRA_SRATE
+                   
+--devid <dev>      Set device id to <dev>.  Eg: 'type=usrp1' etc
+                   Default: $SRA_DEVID
+
+--devid2 <dev>     Set secondary (ref) dev id to <dev>:
+				   Default: $SRA_DEVID2
+
+--devstr <dev>     Augmented device string (when the --devid syntax will not work)
+                   Default: $SRA_DEVSTR
+
+--ppm <ppm>        Set frequency accuracy estimate to <ppm>
+
+--ant <antenna>    Set antenna switch (if any) to <antenna>
+                   Default: $SRA_ANTENNA
+                   
+GEO/ASTRO COORDINATE PARAMS
+============================
+                 
+--longitude <long> Set longitude  to <long> for LMST calcs.  Eg:  37.55
+                   Default: $LONGITUDE
+
+--latitude <lat>   Set latitude to <lat> for fringe-stop calcs.
+                   Default: $LATITUDE
+                   
+--decln <dec>      Set declination to <dec> for logging/fringe-stopping
+                   Default: $SRA_DECLN
+
+--ra <ra>          Set RA to <ra> for logging/fringe-stopping
+                   Default: $SRA_RA
+
+--baseline <base>  Set baseline length to <base> in meters for fringe-stopping
+                   Default: $BASELINE
+
+--aperture         Set effective aperture of antenna in meters
+                   Default: $SRA_APERTURE
+
+BASIC PROCESSING PARAMS
+========================
+
+--freq <freq>      Set tuned frequency to <freq>. Eg: 1420.406e6
+                   Default: $SRA_FREQ
+                   
+--skoffs <offset>  Set sky-frequency offset to <offset>
+                   Default: $SRA_FOFFS
+                   
+--gain <gain>      Set RF gain to <gain> Eg: 30.0
+                   Default: $SRA_GAIN
+                   
+--dbw <detbw>      Set detector bandwidth to <detbw>
+                   Default: $SRA_DBW
+                   
+--dcg <dcgain>     Set detector DC gain to <dcgain>
+                   Default: $SRA_DCGAIN
+                  
+--lrate <rate>     Set logging interval to <rate>
+                   Default: $SRA_LRATE
+
+--integ <integ>    Set DC integration time to <integ>
+                   Default: $SRA_INTEG
+                   
+--refm <refm>      Set reference multiplier to <refm>
+                   Default: $SRA_REFM
+
+FILENAME PARAMS
+===============
+
+--fifo  <filename> High-rate detector output FIFO (for pulsars, etc)
+                   Default: $SRA_FIFO
+
+--cfile <filename> Set spectral compensation file to <filename>
+                   Default: $SRA_CFILE
+                   
+--expname <name>   Set experiment name for CSV records to <expname>
+                   Default:$SRA_EXPNAME
+
+--prefix  <which>  Set which sub-dir in $HOME/simple_ra_data to use
+				   Default: $HOME/simple_ra_data/<$WHICH>
+				   
+--stype <type>     Set file-save type for total-power data
+                   Default: $SRA_STYPE
+
+CALIBRATION CONTROLLER PARAMS
+=============================
+
+--cdevn <devname>  Set CAL device to <devname>
+                   Default: $SRA_CDEVN
+                   
+--cdevrate <rate>  Set CAL dev baud rate to <rate>
+					Default: $SRA_CDEVRATE
+					
+--cdevon <str>     Set CAL dev "ON" string to <str>
+                   Default: $SRA_CDEVON
+
+--cdevoff <str>    Set CAL dev "OFF" string to <str> 
+                   Default: $SRA_CDEVOFF
+
+--cdevinit <str>   Set CAL INIT string to <str>
+                   Default: $SRA_CDEVINIT
+
+--cinterval <secs> Set auto-CAL interval to <secs>
+                   Default: $SRA_CINTERVAL
+
+--contime <secs>   Set auto-CAL ON time to <secs>
+                   Default: $SRA_CONTIME
+
+OPTIONAL SIGNAL PROCESSING ENABLE/DISABLE PARAMS
+=============================================
+
+--sppe             Enable advanced spectral processing
+                   Including spectral flattening, and notch filters
+                   
+--spde             Enable spectral display.  Either directly connected,
+                   or after spectral processing if --sppe is enabled
+
+--dfd              Detector pre-filter disable
+
+-ppe               Enable Pulsar processing
+                   Also enables puslar logging
+
+--interf           Enable interferometer mode
+
+--fse              Enabled fringe-stopping (automatic fringe de-rotation)
+
+DISTINCT LOGGING CONTROLS
+=========================
+
+--sple             Enable spectral logging
+
+--tpld             Detector power logging disable
+
+MISC
+=====
+
+--rpcport <port>   Set RPC port to <port>
+                   Default: $SRA_RPCPORT
+
+DEVICE NAMING
+
+The --devid parameter accepts a device name in the format used by the gr-osmodr
+  "generic" source block, which supports a number of device types, including
+  UHD and RTLSDR devices.  This application is only set up to use the
+  UHD and RTLSDR devices.
+
+RTLSDIR:
+========
+For an RTLSDR device, you use:
+
+--devid rtl=0   for the first RTLSDR device
+--devid rtl=1   for the second RTLSDR device
+
+If you have a E4K tuner on your RTLSDR, you can (and probably should) specify
+  the "offset_tune" parameter:
+
+--devid rtl=0,offset_tune=1
+
+UHD Devices from Ettus Research
+===============================
+For an ETTUS UHD-type device (USRP family), you use:
+
+--devid uhd=a,type=b100,subdev=A:0
+--devid uhd=a,addr=192.168.10.2,subdev=A:0
+--devid uhd=a,type=usrp1,subdev=A:0
+
+You might also find "lo_offset" useful:
+
+--devid uhd=a,type=usrp1,subdev=A:0,lo_offset=1.0e6
+
+The --devstr parameter
+======================
+
+Use the --devstr argument instead of --devid1/--devid when special syntax must be used
+  for example when a single hardware device provides both streams
+
+
+!EOF!
+			exit
+			;;
+		-*)
+			echo "Unknown option: " $1
+			exit
+			;;
+		*)
+			break
+			;;
+	esac
+done
+PREFIX=$HOME/simple_ra_data/$WHICH
+PATH=$PATH:$HOME/bin
+if [ -d $HOME/simple_ra_data/$WHICH ]
+then
+	a=1
+else
+	mkdir -p $HOME/simple_ra_data/$WHICH
+fi
+
+cd $HOME/simple_ra_data/$WHICH
+
+if [ -d $HOME/.gnuradio ]
+then
+	a=1
+else
+	mkdir $HOME/.gnuradio
+	cat > $HOME/.gnuradio/config.conf <<!EOF!
+[wxgui]
+run_always=True
+!EOF!
+fi
+
+if grep -q run_always $HOME/.gnuradio/config.conf
+then
+	a=1
+else
+cat >>$HOME/.gnuradio/config.conf <<!EOF!
+[wxgui]
+run_always=True
+!EOF!
+fi
+
+rm -f tp_data_fifo
+rm -f spec_data_fifo
+
+PYTHONPATH=$PYTHONPATH:$HOME/bin
+
+UHD_PBLOCK_CLOCK=64e6
+
+case $DEVID in
+	*addr=*)
+		UHD_PBLOCK_CLOCK=100e6
+		;;
+	*type=usrp2*)
+		UHD_PBLOCK_CLOCK=100e6
+		;;
+	*type=n2*)
+		UHD_PBLOCK_CLOCK=100e6
+		;;
+esac
+
+ulimit -c 100000
+export SIMPLE_RA_PARAMS=$HOME/simple_ra_data/$WHICH/variables.dump
+RECORDER_PID=$!
+	simple_ra_receiver.py --frequency $SRA_FREQ --rfgain $SRA_GAIN --tpint $SRA_INTEG \
+		--dcg $SRA_DCGAIN --devid "$SRA_DEVID" --spa $SRA_SPAVG \
+		--srate $SRA_SRATE --ant $SRA_ANTENNA --fftsize $SRA_FFTSIZE --maxg $SRA_MAXGAIN --decln $SRA_DECLN \
+		--clock $UHD_PBLOCK_CLOCK --dbw $SRA_DBW --longitude $LONGITUDE --latitude $LATITUDE \
+		--cfile $SRA_CFILE --fifo $SRA_FIFO --prefix $PREFIX --lrate $SRA_LRATE --skoffs $SRA_FOFFS \
+		--devid2 $SRA_DEVID2 --expname $SRA_EXPNAME \
+		--cdevn $SRA_CDEVN --cdevrate $SRA_CDEVRATE --cdevon $SRA_CDEVON --cdevoff $SRA_CDEVOFF \
+		--cdevinit $SRA_CDEVINIT --cinterval $SRA_CINTERVAL --contime $SRA_CONTIME --sppe $SRA_SPPE \
+		--spde $SRA_SPDE --dfd $SRA_DFD --sple $SRA_SPLE --tpld $SRA_TPLD --interf $SRA_INTERF \
+		--ppe $SRA_PPE --devstr "$SRA_DEVSTR" --ra $SRA_RA  --baseline $BASELINE --fse $SRA_FSE \
+		--aperture $SRA_APERTURE --stype $SRA_STYPE --rpcport $SRA_RPCPORT --refm $SRA_REFM
+
+

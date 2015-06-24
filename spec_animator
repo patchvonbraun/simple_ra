@@ -1,0 +1,151 @@
+#!/bin/bash
+function do_help
+{
+	cat <<!EOF!
+Usage: spec_animator [options] input-files
+
+Where [options]  are:
+
+    -f <outfile>     Set output filename (Default: $OUTFILE)
+    -p <slices>      Set slices-per-hour to <slices> (Default: $SLPER)
+    -b <beginhour>   Set begin hour to <beginhour> (Default: $START)
+    -e <endhour>     Set end hour to <endhour>  (Default: $END)
+    -s               Set sidereal processing
+    -u               Set UTC processing
+    -t <title>       Set plot title to <title> (Default: $TITLE)
+    -fc <fc>         Override center frequency extracted from data
+    -rn <range>      Set Y axis range in spectral processing st:end
+    -sm <alpha>      Apply smoothing constant <alpha>
+!EOF!
+}
+
+OUTFILE=animation.mov
+SLPER=4
+START=0
+END=24
+SU=-s
+TITLE="Animation"
+FC_OPT=""
+while [ $# -ge 1 ]
+do
+	case $1 in
+		-f)
+			OUTFILE=$2
+			shift 2
+			;;
+		-p)
+			SLPER=$2
+			shift 2
+			;;
+		-b)
+			START=$2
+			shift 2
+			;;
+		-e)
+			END=$2
+			shift 2
+			;;
+		-s)
+			SU="-s"
+			shift
+			;;
+		-u)
+			SU="-u"
+			shift
+			;;
+		-t)
+			TITLE=$2
+			shift 2
+			;;
+		-fc)
+			FC_OPT="-fc "${2}
+			shift 2
+			;;
+			
+		-rn)
+			RN_OPT="-rn "${2}
+			shift 2
+			;;
+			
+		-sm)
+			SM_OPT="-sm "${2}
+			shift 2
+			;;
+		-*)
+			echo "Unknown option: $1"
+			do_help
+			exit
+			;;
+		*)
+			break
+			;;
+	esac
+done
+if [ $# -lt 2 ]
+then
+	do_help
+	exit 1
+fi
+
+START=`expr $START '*' $SLPER`
+END=`expr $END '*' $SLPER`
+SLICES=`expr $END - $START`
+cnt=$START
+axcnt=0
+echo Processing a total of $SLICES FFT plot frames
+while [ $cnt -lt $END ]
+do
+		awk -v cnt=$cnt -v slper=$SLPER '
+		BEGIN {
+			hr=cnt/slper
+			hr2=(cnt+1)/slper
+			uth=int(hr)
+			printf ("tvb=%05.3f; tve=%05.3f; uth=%02d; uth2=%d\n", hr, hr2, uth, uth)
+			exit
+		}' </dev/zero >shtmp$$
+	    . ./shtmp$$
+	    rm -f shtmp$$
+#
+# Handle format weirdness
+#
+	slist=`grep -l "..:..:.... $uth:..:.." $*`
+	if [ "@$slist@" = "@@" ]
+	then
+		slist=`grep -l "..:..:.... $uth2:..:.." $*`
+	fi
+	ulist=`grep -l "$uth:..:.... ..:..:.." $*`
+	if [ "@$ulist@" = "@@" ]
+	then
+		ulist=`grep -l "$uth:..:.... .:..:.." $*`
+	fi
+	case $SU in
+		-s)
+			thelist=$slist
+			;;
+		-u)
+			thelist=$ulist
+			;;
+	esac
+	if [ "@@" = "@thelist@" ]
+	then
+		cnt=`expr $cnt + 1`
+		continue
+	fi
+	fnc=`awk -v cnt=$axcnt 'BEGIN { printf ("%03d\n", cnt)}'`
+	process_simple_specdat $FC_OPT $RN_OPT $SM_OPT -t "$TITLE" -f slice-$$-${fnc}.png $SU \
+	$tvb $tve \
+	$thelist >/dev/null 2>&1
+	rem=`expr $fnc '%' 10`
+	if [ $rem == 0 ]
+	then
+		echo Done processing FFT plot frame $fnc at $tvb
+	fi
+	cnt=`expr $cnt + 1`
+	axcnt=`expr $axcnt + 1`
+done
+
+rm -f $OUTFILE
+echo Doing frames-to-movie conversion
+ffmpeg -qscale 6 -s 800x600 -r $SLPER -metadata title="$TITLE" -i slice-$$-%03d.png  $OUTFILE >/dev/null 2>&1
+rm -f slice-$$-*.png
+echo FFT movie is available in $OUTFILE

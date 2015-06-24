@@ -1,0 +1,15 @@
+#!/usr/bin/python2
+import os
+import gnuradio
+x=gnuradio.__file__
+s="site-packages"
+l="lib"
+pv="python2.7"
+if "dist-packages" in x:
+	s="dist-packages"
+if "lib64" in x:
+	l="lib64"
+if "python2.6" in x:
+	pv="python2.6"
+print l+"/"+pv+"/"+s
+

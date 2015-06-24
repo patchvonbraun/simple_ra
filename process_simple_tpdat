@@ -1,0 +1,448 @@
+#!/bin/bash
+#
+#
+# process_simple_tpdat [-u]|-s] start-time end-time title <files>
+#
+#
+function do_help
+{
+	cat <<!EOF!
+Usage: process_simple_tpdat HH:MM:SS <hours-width> [options]
+
+HH:MM:SS        center time of plot
+<hours-width>   number of hours to display in plot
+
+Where [options] are:
+
+  -u            Use UTC, rather than LMST
+  -a <alpha>    Use <alpha> for averaging (default: $AVGING)
+  -t <title>    Set plot title to <title>  (default: "$TITLE")
+  -f <outfile>  Set output file to outfile (default: $FILENAME)
+  -r            Display in relative-power
+  -top          Display legend info in top, rather than bottom
+  -right        Display legend info on right, rather then left, side
+  -middle       Display legend info in middle, rather than left or right sides
+  -db           Display in dB
+  -3db          Show a line at the -3dB power level
+  -i            Enable impulse filter (suppress sudden, positive-going spikes)
+  -od <dec>     Override declination from data with <dec>
+  -k  <minTb>   Set dataset minimum Tb estimate to <minTb>, enabling display in degrees K
+  -tsys <ts>    Set Tsys estimate to <ts> (default: $TSYS)
+  -save         Set save file
+  -diff <x>     Set differential compensation to <x>
+!EOF!
+}
+AVGING=0.1
+TITLE="Total Power Plot"
+FILENAME=total_power.png
+START=-1
+END=-1
+WIDTH=1
+UMODE=0
+RELMODE=0
+DBMODE=0
+TOP=0
+RIGHT=0
+MIDDLE=0
+THREEDB=0
+OVERDEC=-99
+KMODE=0
+TSYS=150
+SFILE=""
+DIFFCOMP=0.0
+while [ $# -gt 0 ]
+do
+	case $1 in
+		[0-9][0-9]:*)
+			START=$1
+			WIDTH=$2			
+			shift 2
+			;;
+		-t)
+			TITLE=$2
+			shift 2
+			;;
+		-f)
+			FILENAME=$2
+			shift 2
+			;;
+		-u)
+			UMODE=1
+			shift
+			;;
+			
+		-a)
+			AVGING=$2
+			shift 2
+			;;
+		-r)
+			RELMODE=1
+			shift 1
+			;;
+		-db)
+			DBMODE=1
+			shift 1
+			;;
+		-top)
+			TOP=1
+			shift 1
+			;;
+		-right)
+			RIGHT=1
+			shift 1
+			;;
+		-middle)
+			MIDDLE=1
+			shift 1
+			;;
+		-3db)
+			THREEDB=1
+			shift 1
+			;;
+		-i)
+			IFILTER=1
+			shift
+			;;
+		-od)
+			OVERDEC=$2
+			shift 2
+			;;
+		-k)
+			KMODE=1
+			LOWEST_K=$2
+			shift 2
+			;;
+		-tsys)
+			TSYS=$2
+			shift 2
+			;;
+		-save)
+			SFILE=$2
+			shift 2
+			;;
+		-diff)
+			DIFFCOMP=$2
+			shift 2
+			;;
+		-*)
+		    echo Unknown option: $1
+			do_help
+			exit
+			;;
+		*)
+			break
+			;;
+	esac
+done
+if [ $# -lt 1 ]
+then
+	do_help
+	exit
+fi
+title=$TITLE
+outputfile=$FILENAME
+gawk -v TSTART=$START -v WIDTH=$WIDTH -v UMODE=$UMODE -v AVGING=$AVGING \
+      -v RELMODE=$RELMODE -v DBMODE=$DBMODE -v IFILTER=$IFILTER -v OVERDEC=$OVERDEC \
+      -v KMODE=$KMODE -v TSYS=$TSYS -v LOWEST_K=$LOWEST_K -v DIFFCOMP=$DIFFCOMP '
+BEGIN {if (UMODE == 1) COL=1
+       if (UMODE == 0) COL=2
+       n=split(TSTART,ttoks,":")
+       STIME=ttoks[1]*3600 + ttoks[2]*60 + ttoks[3]
+       a=AVGING
+       y=-999
+       TIMEINCR=30
+       SECSPERDAY=86400
+       SECSPERHOUR=3600
+   }
+/PARAMS / {cur_fc=$2
+           cur_bw=$3
+           cur_dec=$4
+           next}
+/..:..:../ {split($COL,ttoks,":")
+     now=ttoks[1]*3600 + ttoks[2] * 60 + ttoks[3]
+	 yvals[int(now/TIMEINCR)] += $3+DIFFCOMP
+	 ycnts[int(now/TIMEINCR)] += 1
+	 FC=cur_fc
+	 BW=cur_bw
+	 DECLN=cur_dec
+ }
+END {WIDTH *= 3600
+	if (KMODE == 1)
+	{
+		RELMODE = 1
+	}
+     begin_time = STIME-(WIDTH/2)
+     if (begin_time < 0)
+     {
+		 begin_time = (23*3600)+(59*60)+(59) + begin_time
+	 }
+		 
+     begin_time /= TIMEINCR
+     nw = (WIDTH/2)/TIMEINCR
+     offs = WIDTH/2
+     total_elements = nw*2
+     total_elements += 1
+     st = int(begin_time)
+    ymin = 9.0e12
+    ymax = -9.0e12
+    y = -999
+    actual_elements = 0
+   	for (i = 0; i < total_elements; i++)
+	{
+		if (ycnts[int(st)] > 0)
+		{
+		 if (y < -900)
+		 {
+			 y = yvals[st]/ycnts[st]
+		 }
+		 x = yvals[st]/ycnts[st]
+		 y = (a*x) + ((1.0 - a)*y)
+		 if (y < ymin) ymin = y
+		 if (y > ymax) ymax = y
+		 actual_elements = actual_elements + 1
+	    }
+	    st += 1
+	    if ((st*TIMEINCR) > SECSPERDAY)
+		{
+			 st = 0
+		}		 
+	}
+	st = int(begin_time)
+	y = -999
+	y3db = ymin + ((ymax-ymin)/2)
+	#v3db = y3db / ymin
+	#v3db = log(v3db)/log(10.0)
+	#v3db = v3db * 10.0
+	firstplace = 0
+	DBSKIP=1800
+	dbcnt = DBSKIP
+	nts = 0
+	mod = 3600
+	if ((actual_elements*TIMEINCR)/3600 >= 12)
+	{
+		mod = 7200
+	}
+	startst = -99999
+	for (i = 0; i < total_elements; i++)
+	{
+		if (ycnts[int(st)] > 0)
+		{
+			if (startst == -99999)
+			{
+				startst = st
+				realsmooth = yvals[st]/ycnts[st]
+				realsmooth += yvals[st+1]/ycnts[st+1]
+				realsmooth += yvals[st+2]/ycnts[st+2]
+				realsmooth /= 3.0
+			}
+		 if (y < -900)
+		 {
+			 y = yvals[st]/ycnts[st]
+		 }
+		 
+		 x = yvals[st]/ycnts[st]
+		 if (IFILTER == 1)
+		 {
+			 if (x > (realsmooth*1.25))
+			 {
+				 r1 = int(rand()*65536) % 2
+				 r2 = (rand()*realsmooth) / 20
+				 
+				 if (r1 == 0)
+				 {
+					 x = realsmooth + r2
+				 }
+				 else
+				 {
+					 x = realsmooth - r2
+				 }
+			 }
+		 }
+		 realsmooth = (0.015)*x + ((1.0 - 0.015)*realsmooth)				 
+		 y = (a*x) + ((1.0 - a)*y)
+		 v = y
+
+		if (RELMODE == 0)
+		{
+			ymin = 1.0
+		}
+		 q = st*TIMEINCR
+		 if ((int(q) % mod) == 0)
+		 {
+			z = (((i-nw)*TIMEINCR)/3600.0)
+			z = int(z)
+			timestr = sprintf ("%02d", int(q)/3600)
+			tsbuf[nts+1] = timestr
+			tpbuf[nts+1] = z
+			nts = nts + 1
+		}
+		 dval = v/ymin
+		 v3db = y3db/ymin
+		 if (DBMODE == 1)
+		 {
+			 dval = log(dval)/log(10.0)
+			 dval = dval * 10.0
+			 v3db = log(v3db)/log(10.0)
+			 v3db = v3db * 10.0
+		 }
+		 if (KMODE == 1)
+		 {
+			 dval = v / ymin
+			 dval = (LOWEST_K+TSYS)*dval
+			 dval -= TSYS
+			 
+			 v3db = y3db/ymin
+			 v3db = (LOWEST_K+TSYS)*v3db
+			 v3db -= TSYS
+		 }
+		 printf ("DATA %f %f\n", (((i-nw)*TIMEINCR)/3600.0), dval)
+		 if ((i % 50) == 0)
+		 {
+			printf ("THREEDB %f %f\n", (((i-nw)*TIMEINCR)/3600.0), v3db)
+		}
+		 endst = st
+	 }
+	    st += 1
+	    if ((st*TIMEINCR) > SECSPERDAY)
+		{
+			 st = 0
+		}		 
+	}
+	printf ("FC=%.4f\n", FC/1.0e6)
+     printf ("BW=%.2f\n", BW/1.0e6)
+     if (OVERDEC != -99)
+     {
+		 DECLN=OVERDEC
+	 }
+     printf ("DECLN=%.2f\n", DECLN)
+     printf ("CTIME=%.2f\n", STIME/36dc00.0)
+     ticsbuf = "("
+     for (i = 1; i <= nts; i++)
+     {
+		 z =  sprintf("\\\"%s\\\" %d", tsbuf[i], tpbuf[i])
+		 ticsbuf = sprintf ("%s", ticsbuf) z
+		 if (i < nts)
+		 {
+			 ticsbuf = sprintf ("%s", ticsbuf) ","
+		 }
+	 }
+	 ticsbuf = sprintf ("%s", ticsbuf) ")"
+	 printf ("TICSBUF=\"%s\"\n", ticsbuf)
+	 printf ("NTS=%d\n", nts)
+	 sthour = (startst*TIMEINCR)/3600
+	 sthour = int(sthour)
+	 stmin = ((startst*TIMEINCR)) - (sthour*3600)
+	 stmin = int(stmin/60)
+	 printf ("START=%02d:%02d\n", sthour, stmin)
+	 
+	 enhour = (endst*TIMEINCR)/3600
+	 enhour = int(enhour)
+	 enmin = ((endst*TIMEINCR)) - (enhour*3600)
+	 enmin = int(enmin/60)
+	 
+	 printf ("END=%02d:%02d\n", enhour, enmin)
+ }
+' $* >tmp$$
+grep DATA tmp$$ |sed -e 's/DATA //' >data-$$
+grep THREEDB tmp$$ |sed -e 's/THREEDB //' >3db-$$
+grep = tmp$$ >shtmp$$
+. ./shtmp$$
+rm -f shtmp$$
+file=data-$$
+file2=3db-$$
+xlabel="UTC Time (Hours)"
+TMODE=UTC
+if [ $UMODE -ne 1 ]
+then
+    TMODE=LMST
+	xlabel="LMST (Hours)"
+fi
+mkdir tmp-plot$$
+cp data-$$ tmp-plot$$/total_power_data
+if [ @$SFILE@ != "@@" ]
+then
+	cp data-$$ $SFILE
+fi
+cp 3db-$$ tmp-plot$$/3db
+cd tmp-plot$$
+ofile=../$outputfile
+if [ @$SKYADJ@ != @@ ]
+then
+	FC=`echo $SKYADJ $FC | awk '/./ {printf("%7.2f\n", $1+$2)}'`
+fi
+YLAB='Detector Level'
+if [ $RELMODE == 1 ]
+then
+	YLAB='Relative Power'
+fi
+if [ $DBMODE == 1 ]
+then
+	YLAB=${YLAB}" (dB)"
+fi
+if [ $KMODE == 1 ]
+then
+	YLAB="Tant (K)"
+fi
+if [ $TOP == 1 ]
+then
+	LL1=0.935
+	LL2=0.900
+	LL3=0.865
+	LL4=0.835
+else
+	LL1=0.135
+	LL2=0.100
+	LL3=0.065
+	LL4=0.035
+fi
+if [ $RIGHT == 1 ]
+then
+	LS=0.650
+else
+	LS=0.015
+fi
+if [ $MIDDLE == 1 ]
+then
+	LS=0.350
+fi
+plotline="plot 'total_power_data' with lines"
+if [ $THREEDB == 1 ]
+then
+	plotline="plot 'total_power_data' with lines, '3db' ls 5"
+fi
+line4="#"
+if [ $KMODE == 1 ]
+then
+	line4="set label 'Min(Tant)=${LOWEST_K}K TSYS=${TSYS}K' at graph $LS,$LL4"
+fi
+cat >gpfile$$ <<!EOF!
+set title '$title'
+set xlabel '$xlabel'
+set ylabel '$YLAB'
+set label 'From $START to $END $TMODE' at graph $LS,$LL1
+set label 'Fc=${FC}MHz BW=${BW}MHz' at graph $LS,$LL2
+set label 'DECLINATION=${DECLN} DEG' at graph $LS,$LL3
+$line4
+set terminal png size 900,600
+set output '$ofile'
+set xtics $TICSBUF
+set grid
+set style line 5 lt rgb "black" lw 1 pt 6
+$plotline
+!EOF!
+gnuplot <gpfile$$
+rm -f gpfile$$
+cd ..
+rm -f tmp$$
+rm -f data-$$
+rm -f 3db-$$
+rm -rf tmp-plot$$
+
+if [ -f $outputfile ]
+then
+	echo Your plot titled \""$title"\" is available in $outputfile
+else
+	echo There was a problem producing $outputfile
+fi
+
+

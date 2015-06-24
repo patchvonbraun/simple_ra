@@ -1,0 +1,358 @@
+This is a simple application that allows single-dish radio astronomy,
+  collecting both total-power and spectral data in real time from a
+  SDR device--either a UHD device or a RTL-SDR device. It also supports
+  a differential mode, allowing you to use a "reference" channel which
+  is like Dicke-switching, only uses two receiver chains.
+
+It currently also supports simple two-dish interferometry.
+
+INSTALL
+=======
+
+This application set REQUIRES Gnu Radio.  If you haven't yet installed Gnu Radio,
+  do so before proceeding here.  Currently, this code is compatible with Gnu Radio
+  3.7.5, so if you dont' have Gnu Radio on your system, download the build-gnuradio
+  script from:
+  
+http://www.sbrac.org/files/build-gnuradio
+
+Then:
+
+chmod 755 build-gnuradio
+
+./build-gnuradio
+
+And go from there
+
+Once you've fetched the simple_ra source (of which this file is a part), you can:
+
+make
+make install
+
+If you don't already have 'pyephem' on your system, you'll need to install it.
+
+The home page for pyephem is here:
+
+http://rhodesmill.org/pyephem/
+
+Similarly, you'll need pyserial, which is usually installed
+  via "pip".  If you don't have "pip" on your system, you'll need to install that first.
+
+You'll need to make certain that both your PATH and PYTHONPATH variables
+  include $HOME/bin, since this application installs parts of itself there,
+  rather than in the system directories.  Your .bashrc is the usual place
+  to put these variable settings.
+
+The current version of simple_ra also requires now that gr-ra_blocks be installed as a pre-requisite.
+You can get gr-ra_blocks via SVN here:
+
+svn co https://www.cgran.org/svn/projects/gr-ra_blocks
+
+Then build:
+
+cd gr-ra_blocks
+cd trunk
+cmake .
+make
+sudo make install
+sudo ldconfig
+
+Then you can proceed to the the simple_ra install
+
+
+POST-INSTALL CONSIDERATIONS
+===========================
+
+Assuming that everything installed correctly, you should be ready to go.  HOWEVER, if you're
+  using RTL-SDR devices, be aware that newer Linux kernels come with a DVB-T driver set for
+  the RTL-SDR dongles (using them in their non-SDR mode).  You'll have to "blacklist" the
+  kernel drivers for the RTL28XXX devices.
+  
+Use "lsmod" to determine if your kernel has related modules installed, and then update:
+
+/etc/modprobe.d/blacklist.conf  (or the equivalent on your sytsem)
+
+blacklist rtl2832
+blacklist dvb_core
+blacklist rtl2830
+blacklist dvb_usb_rtl28xxu
+
+The above list should work on most systems, but different module names might be involved.
+
+To blacklist all the related modules so they don't interfere with SDR use of the RTLSDR dongles.
+
+
+
+USAGE
+=====
+
+Once it's installed, and you have your PATH and PYTHONPATH set appropriately,
+  you can use:
+
+simple_ra --help
+
+To get help on the command-line parameters
+
+DEVICE NAMING
+=============
+
+The --devid parameter accepts a device name in the format used by the gr-osmodr
+  "generic" source block, which supports a number of device types, including
+  UHD and RTLSDR devices.  This application is only set up to use the
+  UHD and RTLSDR devices.
+
+For an RTLSDR device, you use:
+
+--devid rtl=0   for the first RTLSDR device
+--devid rtl=1   for the second RTLSDR device
+
+If you have a E4K tuner on your RTLSDR, you can (and probably should) specify
+  the "offset_tune" parameter:
+
+--devid rtl=0,offset_tune=1
+
+If you operate with the 250k sample-rate, you should also add "buflen=65536" to the devid parameter
+  list to shrink the buffer size to make flow through the receiver less "lumpy" at low sample rates.
+  
+--devid rtl=0,buflen=65536
+
+Also, for RTL devices that contain a programmable EEPROM, you can set an arbitrary serial number
+  on the devices, using the "rtl_eeprom" utility.
+  
+rtl_eeprom -d 0 -s 1420_SKY
+rtl_eeprom -d 1 -s 1420_REF
+
+Would set the device at slot 0 to have a serial number of "1420_SKY", and the one at slot 1 to have
+  a serial number of "1420_REF"  You'll have to unplug/replug the device in order for the new
+  serial number to take effect.
+  
+You can then subsequently refer to the device under its custom serial number, for example:
+
+simple_ra --devid rtl=1420_SKY,buflen=65536 --devid2 rtl=1420_REF,buflen=65536
+
+For an ETTUS UHD-type device (USRP family), you use:
+
+--devid uhd=a,type=b100,subdev=A:0
+--devid uhd=a,addr=192.168.10.2,subdev=A:0
+--devid uhd=a,type=usrp1,subdev=A:0
+
+You might also find "lo_offset" useful:
+
+--devid uhd=a,type=usrp1,subdev=A:0,lo_offset=1.0e6
+
+DIFFERENTIAL RECEIVING MODE
+===========================
+
+Similarly, there's a --devid2 parameter, which supports differential mode observing--the 2nd
+  device is assumed to be a reference channel--probably terminated in an ambient or cold load.
+  In this mode the power levels from the reference channel are subtracted from the "sky" channel.
+  This has the effect of factoring-out systemic gain-changes, provided that the "reference" has
+  essentially-identical hardware (LNAs, receivers, etc) to the "sky" chain, and is in the same
+  thermal and power-supply environmental "domain".
+  
+The --devid2 parameter takes all the same fields as the --devid parameter.
+
+So, if you were using a pair of rtl devices (say index 0 and 1) with "sky" on 0 and "ref" on 1:
+
+--devid rtl=0[,otherparams] --devid2 rtl=1,[otherparams]
+
+SUPPORT FOR EXTERNAL CALIBRATION CONTROLLERS
+============================================
+
+It is sometimes nice to have a calibration noise-source that can be switched on/off remotely somewhere
+  near the front-end.  There is support to talk to an external serial-based "bitbanger" of some sort
+  to facilitate computer-control of such a thing.  The conceptual model is based on the "BitWhacker"
+  board from Spark Fun electronics: http://www.sparkfun.com
+  
+There are several parameters that control the behavior:
+
+--cdevn <dev>           The device name of the bitwhacker device:  /dev/ttyACM0  on many Linux systems
+                        for the USB-based bitwhacker device.
+                        
+--cdevrate <rate>       Baud rate for the device: 19200       for the bitwhacker
+
+--cdevon   <string>     The ON string to be used: PO,B,0,1    for the bitwhacker  port B0
+
+--cdevoff  <string>     The OFF string to be used: PO,B,0,0   for the bitwhacker  port B0
+
+--cdevinit <string>     The INIT string to be used: C,0,0,0,0 for the bitwhacker
+
+--contime <secs>        The amount of time to leave CAL on during the auto-CAL interval
+
+--cinterval <secs>      The interval in seconds between auto-CAL events
+
+The idea is that you use one of the control bits (B0 in the defaults) to drive a relay or
+  similar to ultimately provide bias voltage for whatever CAL noise source you're using.
+
+The defaults are for a BitWhacker, but any serial-based device with a similar kind of command structure
+  could likely be supported just by changing the ON/OFF strings and the INIT string.
+
+  
+DATA FILES
+==========
+
+This application produces data files in a directory called "simple_ra_data"
+  in your home directory.
+
+Files will accumulate there of two types:
+
+tp-YYYYMMDD-HH.dat
+
+Which contains total-power data
+
+and
+
+spec-YYYYMMDD-HH.dat
+
+Which contains spectral data
+
+and
+
+psr-YYYYMMDD-HH.dat
+
+Which contains pulsar profiles
+
+total-power data format:
+
+HH:MM:SS HH:MM:SS data-value
+
+The first time column is UTC, the second is LMST.  The data value is a simple
+  floating-point number from the detector output.
+
+There will also be an occasional PARAMS block:
+
+PARAMS tuned-frequency detector-bandwidth declination jdate right-ascension
+
+The spectral data has a similar format.
+
+Data lines are:
+
+HH:MM:SS HH:MM:SS [ multiple lines of FFT magnitude values ]
+
+There is also a PARAMS block in the same format as the total-power PARAMS block
+
+The pulsar data format is identical to the spectral format, except that the magnitude values are
+  normalized pulsar profile bins, rather than spectral bins.
+  
+  
+CSV FILES
+=========
+
+Along with the tp-YYYYMMDD-HH.dat files, the software also produces "CR" (Continuum Record) files
+  in the form:  CRYYYYMMDD_<expname>.csv.  The fields are in a CSV format (comma-separated values).
+
+The fields are:
+
+UHH,UMM,USS,SHH,SMM,SSS,detector-value,cal-state
+
+Where:
+
+UHH = UTC Hour
+UMM = UTC Minute
+USS = UTC Second
+
+SHH = LMST Hour
+SMM = LMST Minute
+SSS = LMST Second
+
+detector-value = floating-point detector output value
+cal-state      = 0 or 1 depending on calibrator state
+
+
+
+POST-PROCESSING SCRIPTS
+=======================
+
+There are two scripts that can be used to post-process both total-power and spectral data from the files produced in 'simple_ra_data'.
+
+Total Power Processing
+======================
+
+The 'process_simple_tpdat' script is used to process total-power files and
+  produce a graph in a ".png" file.
+
+Usage: process_simple_tpdat HH:MM:SS <hours-width> [options]
+
+HH:MM:SS        center time of plot
+<hours-width>   number of hours to display in plot
+
+Where [options] are:
+
+  -u            Use UTC, rather than LMST
+  -a <alpha>    Use <alpha> for averaging (default: 0.1)
+  -t <title>    Set plot title to <title>  (default: "Total Power Plot")
+  -f <outfile>  Set output file to <outfile> (default: total_power.png)
+  -r            Display in relative-power
+  -db           Display in dB
+  -top          Display legend info in top, rather than bottom
+  -right        Display legend info on right, rather then left, side
+  -middle       Display legend info in middle, rather than left or right sides
+  -db           Display in dB
+  -3db          Show a line at the -3dB power level
+  -i            Enable impulse filter (suppress sudden, positive-going spikes)
+  -od <dec>     Override declination from data with <dec>
+  -k  <minTb>   Set dataset minimum Tb estimate to <minTb>, enabling display in degrees K
+  -tsys <ts>    Set Tsys estimate to <ts> (default: 150)
+
+Example:
+
+process_simple_tpdat 20:00:00 4.0 -t "GP Transit" -f gp-transit.png \
+	~/simple_ra_data/tp-20130125-*.dat ~/simple_ra-data/tp-20130126*.dat
+
+This would produce a plot of the data +/- 2.0 hours centered at an LMST
+  of 20:00:00 in a file called 'gp-transit.png'
+
+
+Spectral Processing
+===================
+
+Similarly, spectral data can be processed, using the 'process_simple_specdat'
+  script:
+
+Usage: process_simple_specdat <options> input-files
+Options:
+     -s <start> <end>    Use sidereal time of <start> <end> (HH:MM:SS or HH.frac)
+     -u <start> <end>    Use UTC time of <start> <end>      (HH:MM:SS or HH.frac)
+     -t <title>          Set title to <title>
+     -f <outfile>        Set output file to <outfile>
+     -fc <frequency>     Set center frequency for doppler calcs to <frequency>
+     -od <dec>           Override declination from data with <dec>
+     -rn <range>         Set display range to <range> (using st:end Gnuplot syntax)
+     -r  <reduction>     Reduce FFT velocity display range by <reduction>
+     -a                  Display in absolute, rather than relative, units
+     
+        
+Here, we give a time range specified by the two HH:MM:SS parameters. That
+  time range is interpreted either as a UTC time, when you specify -u, or
+  a sidereal time, when you specify -s.
+
+Example:
+
+process_simple_specdat -s 19:30:00 19:33:00 -t '21cm spectrum' -f spectrum.png  \
+	~/simple_ra_data/spec-20120501*.dat
+	
+	
+Making Spectral Movies
+======================
+
+You can use the spec_animator script to produce a .mov or .avi file of a selection of FFT plots.
+
+Usage: spec_animator [options] input-files
+
+Where [options]  are:
+
+    -f <outfile>     Set output filename (Default: animation.mov)
+    -p <slices>      Set slices-per-hour to <slices> (Default: 4)
+    -b <beginhour>   Set begin hour to <beginhour> (Default: 0)
+    -e <endhour>     Set end hour to <endhour>  (Default: 24)
+    -s               Set sidereal processing
+    -u               Set UTC processing
+    -t <title>       Set plot title to <title> (Default: Animation)
+    -fc <fc>         Override center frequency extracted from data
+
+
+Fairly self explanatory.   By default, it produces a 24-hour movie, with 1 hour per second of
+  movie playing time.
+  
+  
+

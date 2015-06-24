@@ -1,0 +1,314 @@
+#!/bin/bash
+#
+#
+# process_simple_tpdat
+#
+#
+function checktime
+{
+	DIG="[0123456789]"
+	case $1 in
+		${DIG}${DIG}":"${DIG}${DIG}":"${DIG}${DIG})
+			time_ok=1
+			;;
+		
+		${DIG}.${DIG}*|${DIG}${DIG}.${DIG}*)
+			time_ok=1
+			;;
+			
+		${DIG}|${DIG}${DIG})
+			time_ok=1
+			;;
+	esac
+}
+	
+function do_help
+{
+	cat <<"!EOF!"
+Usage: process_simple_specdat <options> input-files
+Options:
+     -s <start> <end>    Use sidereal time of <start> <end>  (HH:MM:SS or HH.frac)
+     -u <start> <end>    Use UTC time of <start> <end>       (HH:MM:SS or HH.frac)
+     -t <title>          Set title to <title>
+     -f <outfile>        Set output file to <outfile>
+     -fc <frequency>     Set center frequency for doppler calcs to <frequency>
+     -od <dec>           Override declination from data with <dec>
+     -rn <range>         Set display range to <range> (using st:end Gnuplot syntax)
+     -r  <reduction>     Reduce FFT velocity display range by <reduction>
+     -a                  Use an absolute, rather than 0-based relative scale
+     -sm <smooth>        Use alpha value of <smooth> to smooth
+!EOF!
+}
+
+if [ $# -lt 7 ]
+then
+	do_help
+	exit
+fi
+START=NONE
+END=NONE
+REDUCE=0.0
+TITLE="untitled"
+OUTFILE=output.png
+OVERRIDE_FC=-1.0
+OVERDEC=-99
+UMODE="99"
+DRANGE="*:*"
+AMODE=0
+SMA=1.0
+while [ $# -gt 0 ]
+do 
+	case $1 in
+		-u|-s)
+			if [ $1 == '-u' ]
+			then
+				UMODE=1
+			elif [ $1 == '-s' ]
+			then
+				UMODE=0
+			fi
+			START=$2
+			time_ok=0
+			checktime $START
+			if [ $time_ok != 1 ]
+			then
+				echo "Improper format for START time"
+				exit
+			fi
+			
+			time_ok=0
+			END=$3
+			checktime $END
+			if [ $time_ok != 1 ]
+			then
+				echo "Improper format for END time"
+				exit
+			fi
+			shift 3
+			;;
+		-r)
+			REDUCE=$2
+			shift 2
+			;;
+		-t)
+			TITLE=$2
+			shift 2
+			;;
+		-f)
+			OUTFILE=$2
+			shift 2
+			;;
+			
+		-fc)
+			OVERRIDE_FC=$2
+			shift 2
+			;;
+		-od)
+			OVERDEC=$2
+			shift 2
+			;;
+		-rn)
+			DRANGE=$2
+			shift 2
+			;;
+		-a)
+			AMODE=1
+			shift 1
+			;;
+		-sm)
+			SMA=$2
+			shift 2
+			;;
+		-*)
+			echo Unknown option: $1
+			do_help
+			exit
+			;;
+		*)
+			break
+			;;
+	esac
+done
+if [ $UMODE == 99 ]
+then
+	echo You must specify either -s or -u
+	exit
+fi
+
+if [ $START == NONE -o $END == NONE ]
+then
+	echo You must specify start/end times with -s or -u
+	exit
+fi
+
+title=$TITLE
+
+outputfile=$OUTFILE
+
+gawk -v TSTART=$START -v TEND=$END -v UMODE=$UMODE -v REDUCE=$REDUCE -v OVERRIDE_FC=$OVERRIDE_FC \
+	-v OVERDEC=$OVERDEC -v AMODE=$AMODE -v SMA=$SMA '
+BEGIN {if (UMODE == 1) COL=1
+       if (UMODE == 0) COL=2
+       n=split(TSTART,ttoks,":")
+       if (n != 3)
+       {
+		   STIME = TSTART * 3600
+	   }
+	   else
+	   {
+			STIME=ttoks[1]*3600 + ttoks[2]*60 + ttoks[3]
+		}
+       n=split(TEND,ttoks,":")
+       if (n != 3)
+       {
+		   ETIME = TEND * 3600
+	   }
+	   else
+	   {
+			ETIME=ttoks[1]*3600 + ttoks[2]*60 + ttoks[3]
+		}
+       a=0.1
+       y=-999
+   }
+/PARAMS / {cur_fc=$2
+           cur_bw=$3
+           cur_decln=$4
+           next
+	   }
+/\[/ {split($COL,ttoks,":")
+     now=ttoks[1]*3600 + ttoks[2] * 60 + ttoks[3]
+     if (STIME <= now && now <= ETIME)
+     {
+		gather = 1
+		binndx = 1
+		rcnt += 1
+		BW=cur_bw
+		FC=cur_fc
+		DECLN=cur_decln
+	 }
+	 next
+ }
+/^-*[0-9]*\.[0-9]* / {if (gather != 1) next
+                     nt=split($0,bins)
+					 if (bins[nt] == "]") nt = nt-1
+                     for (i = 1; i <= nt; i++)
+                     {
+						 obins[binndx] += bins[i]
+						 binndx = binndx + 1
+						 if (binndx > maxndx) maxndx = binndx
+					 }
+				 }	 
+/\]/ {gather = 0}
+END {DFC=FC
+    if (OVERRIDE_FC > 0)
+	{
+		DFC = 0 + OVERRIDE_FC
+	}
+	if (maxndx <= 0)
+	{
+		printf ("PROCESSING_ERROR=1\n");
+		exit
+	}
+	Fincr=BW/maxndx
+     curr_f=FC-((BW)/2.0)
+     low_v=999999.000
+     high_v=-99999.000
+     minvel = 10000.000
+     maxvel = -10000.00
+     minvlvl=999.99
+     if (rcnt <= 0)
+     {
+		 printf ("PROCESSING_ERROR=1\n");
+		 exit
+	 }
+    for (i = 1; i < maxndx; i++)
+    {
+		if ((obins[i]/rcnt) < minlvl)
+		{
+			minlvl = obins[i]/rcnt
+		}
+	}
+	if (AMODE == 1)
+	{
+		minlvl = 0.0
+	}
+	y = obins[1]/rcnt
+	for (i = 1; i < maxndx; i++)
+		{
+			vel=(DFC-curr_f)/DFC
+			vel = vel * 299792.0
+			x = (obins[i]/rcnt)
+			y = (SMA*x) + ((1.0-SMA)*y)
+			printf ("%f %14.9f\n", vel, y-minlvl)
+			if (vel < minvel) minvel = vel
+			if (vel > maxvel) maxvel = vel
+			curr_f += Fincr
+			if (vel > high_v) high_v=vel
+			if (vel < low_v) low_v=vel
+		}
+		BW = BW * (1.0-(REDUCE*2))
+		printf ("FC=%.4f\nBW=%.1f\n", FC/1.0e6, (BW/1.0e6))
+		printf ("SKYF=%.4f\n", DFC/1.0e6)
+		printf ("RES=%.3f\n", ((Fincr)/DFC)*299792.0)
+		if (OVERDEC != -99)
+		{
+			DECLN=OVERDEC
+		}
+		printf ("DECLN=%.2f\n", DECLN)
+		printf ("KMR=%.2f\n", high_v-low_v)
+		printf ("RECS=%d\n", rcnt)
+		range = maxvel - minvel
+		range = range * REDUCE
+		printf ("MINVEL=%d\n", minvel + range)
+		printf ("MAXVEL=%d\n", maxvel - range)
+	}
+' $* >tmp$$
+grep -v = tmp$$ >tmp2$$
+grep = tmp$$ >shtmp$$
+. ./shtmp$$
+rm -f shtmp$$
+
+count=`cat tmp2$$|wc -l`
+
+if [ $count -lt 10 ]
+then
+	echo "Plot file is truncated -- not plotting"
+	rm -f tmp$$ tmp2$$
+	exit
+fi
+	
+TTS=LMST
+if [ $UMODE == 1 ]
+then
+	TTS=UTC
+fi
+
+file=tmp2$$
+gnuplot <<!EOF!
+set title '$title (DEC=${DECLN})'
+set xlabel 'Velocity (km/s) RES=${RES}km/s'
+set xrange [$MINVEL:$MAXVEL]
+set yrange [$DRANGE]
+set label 'Tuned Fc:${FC}MHz' at graph 0.5, graph 0.5
+set label 'Sky Fc:${SKYF}MHz' at graph 0.5, 0.465
+set label '<---${BW}MHz (${KMR}km/s)--->' at graph 0.3, graph 0.1
+set label 'Averaged from $START to $END $TTS ($RECS records)' at graph 0.05, graph 0.95
+set ylabel 'Power (dB)'
+set terminal png size 800,600
+set output '$outputfile'
+set grid
+plot '$file' with lines
+!EOF!
+cp tmp2$$ flatten_input.dat
+rm -f tmp$$ tmp2$$
+
+if [ -f $outputfile ]
+then
+	echo Your plot titled \""$title"\" is available in $outputfile
+else
+	echo There was a problem producing $outputfile
+fi
+
+
+
+
