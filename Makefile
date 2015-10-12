@@ -14,8 +14,8 @@ all: simple_ra_receiver.py
 simple_ra_receiver.py: simple_ra_receiver.grc
 	@echo Using $(PYTHONPATH) for compile...
 	grcc -d . simple_ra_receiver.grc
-#svn info |grep evision |sed -e 's/.*: //' >tmprev.tmp
-	sed -e 's/@@REV@@/9999/' <simple_ra_receiver.py >tmprec.py
+	git describe --abbrev=8 --dirty --always --tags >tmprev.tmp
+	sed -e s/@@REV@@/`cat tmprev.tmp`/ <simple_ra_receiver.py >tmprec.py
 	cp tmprec.py simple_ra_receiver.py
 	rm -f tmprev.tmp tmprec.py
 	
