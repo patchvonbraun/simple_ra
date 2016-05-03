@@ -44,15 +44,16 @@ You'll need to make certain that both your PATH and PYTHONPATH variables
   to put these variable settings.
 
 The current version of simple_ra also requires now that gr-ra_blocks be installed as a pre-requisite.
-You can get gr-ra_blocks via SVN here:
+You can get gr-ra_blocks via git:
 
-svn co https://www.cgran.org/svn/projects/gr-ra_blocks
+git clone https://github.com/patchvonbraun/gr-ra_blocks
 
 Then build:
 
 cd gr-ra_blocks
-cd trunk
-cmake .
+mkdir build
+cd build
+cmake ..
 make
 sudo make install
 sudo ldconfig
