@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<?grc format='1' created='3.7.9'?>
+<?grc format='1' created='3.7.10'?>
 <flow_graph>
   <timestamp>Wed Aug 13 18:37:29 2014</timestamp>
   <block>
@@ -39,6 +39,10 @@
     <param>
       <key>generate_options</key>
       <value>wx_gui</value>
+    </param>
+    <param>
+      <key>hier_block_src_path</key>
+      <value>.:</value>
     </param>
     <param>
       <key>id</key>
@@ -9419,7 +9423,7 @@
     </param>
     <param>
       <key>iq_balance_mode0</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>gain0</key>
@@ -9859,7 +9863,7 @@
     </param>
     <param>
       <key>iq_balance_mode1</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>gain1</key>

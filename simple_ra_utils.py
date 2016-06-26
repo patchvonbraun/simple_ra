@@ -433,11 +433,11 @@ def compute_notches(notchlist,flen,bw,freq):
         idx = round(idx)
         
         if (idx < 0):
-            idx = -1 * idx
+            #idx = -1 * idx
             idx = ((flen)-1) - idx
         
-        while (idx < 0):
-            idx = idx + 1
+        #while (idx < 0):
+            #idx = idx + 1
             
         tmptaps[int(idx)] = complex(0.0, 0.0)
         added = added + 1
