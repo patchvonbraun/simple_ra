@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<?grc format='1' created='3.7.10'?>
+<?grc format='1' created='3.7.11'?>
 <flow_graph>
   <timestamp>Wed Aug 13 18:37:29 2014</timestamp>
   <block>
@@ -373,12 +373,12 @@
       <value>clipping_probe_out</value>
     </param>
     <param>
-      <key>poll_rate</key>
-      <value>3</value>
-    </param>
-    <param>
       <key>value</key>
       <value>0</value>
+    </param>
+    <param>
+      <key>poll_rate</key>
+      <value>3</value>
     </param>
   </block>
   <block>
@@ -1215,12 +1215,12 @@
       <value>fft_probe_out</value>
     </param>
     <param>
-      <key>poll_rate</key>
-      <value>0.5</value>
-    </param>
-    <param>
       <key>value</key>
       <value>[0]*correct_fftsize</value>
+    </param>
+    <param>
+      <key>poll_rate</key>
+      <value>0.5</value>
     </param>
   </block>
   <block>
@@ -1460,12 +1460,12 @@
       <value>fspacer</value>
     </param>
     <param>
-      <key>poll_rate</key>
-      <value>1.0</value>
-    </param>
-    <param>
       <key>value</key>
       <value>0</value>
+    </param>
+    <param>
+      <key>poll_rate</key>
+      <value>1.0</value>
     </param>
   </block>
   <block>
@@ -1890,12 +1890,12 @@
       <value>logger_det_a</value>
     </param>
     <param>
-      <key>poll_rate</key>
-      <value>1</value>
-    </param>
-    <param>
       <key>value</key>
       <value>0</value>
+    </param>
+    <param>
+      <key>poll_rate</key>
+      <value>1</value>
     </param>
   </block>
   <block>
@@ -1933,12 +1933,12 @@
       <value>logger_det_b</value>
     </param>
     <param>
-      <key>poll_rate</key>
-      <value>1</value>
-    </param>
-    <param>
       <key>value</key>
       <value>0</value>
+    </param>
+    <param>
+      <key>poll_rate</key>
+      <value>1</value>
     </param>
   </block>
   <block>
@@ -1976,12 +1976,12 @@
       <value>logger_psr</value>
     </param>
     <param>
-      <key>poll_rate</key>
-      <value>1</value>
-    </param>
-    <param>
       <key>value</key>
       <value>[0]*pvec_size</value>
+    </param>
+    <param>
+      <key>poll_rate</key>
+      <value>1</value>
     </param>
   </block>
   <block>
@@ -2019,12 +2019,12 @@
       <value>logger_spec</value>
     </param>
     <param>
-      <key>poll_rate</key>
-      <value>1</value>
-    </param>
-    <param>
       <key>value</key>
       <value>[0]*fftsize</value>
+    </param>
+    <param>
+      <key>poll_rate</key>
+      <value>1</value>
     </param>
   </block>
   <block>
@@ -2062,12 +2062,12 @@
       <value>logger_tp</value>
     </param>
     <param>
-      <key>poll_rate</key>
-      <value>1</value>
+      <key>value</key>
+      <value>complex(0,0)</value>
     </param>
     <param>
-      <key>value</key>
-      <value>0</value>
+      <key>poll_rate</key>
+      <value>1</value>
     </param>
   </block>
   <block>
@@ -2186,12 +2186,12 @@
       <value>pacer</value>
     </param>
     <param>
-      <key>poll_rate</key>
-      <value>3</value>
-    </param>
-    <param>
       <key>value</key>
       <value>0</value>
+    </param>
+    <param>
+      <key>poll_rate</key>
+      <value>3</value>
     </param>
   </block>
   <block>
@@ -2911,12 +2911,12 @@
       <value>tod_value</value>
     </param>
     <param>
-      <key>poll_rate</key>
-      <value>2</value>
-    </param>
-    <param>
       <key>value</key>
       <value>0</value>
+    </param>
+    <param>
+      <key>poll_rate</key>
+      <value>2</value>
     </param>
   </block>
   <block>
@@ -2970,7 +2970,7 @@
     </param>
     <param>
       <key>value</key>
-      <value>sra.log_tp_data(logger_tp.real, logger_tp.imag, freq+sky_off, idecln, dbw, longitude, prefix, lrate,ira,tplog_ena,expname,cal_sig4log,stype,logger_det_a*dc_gain,logger_det_b*dc_gain)</value>
+      <value>sra.log_tp_data(sra.getreal(logger_tp), sra.getimag(logger_tp), freq+sky_off, idecln, dbw, longitude, prefix, lrate,ira,tplog_ena,expname,cal_sig4log,stype,logger_det_a*dc_gain,logger_det_b*dc_gain)</value>
     </param>
   </block>
   <block>

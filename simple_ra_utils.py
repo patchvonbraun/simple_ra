@@ -1210,3 +1210,10 @@ def exit_cleanly(butval):
     p=os.getpid()
     if (butval == 1):
         x=os.kill(p,signal.SIGTERM)
+
+def getreal(v):
+	return v.real
+
+def getimag(v):
+	return v.imag
+
